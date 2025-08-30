@@ -1,0 +1,9 @@
+
+{
+  "bounds": [
+    {
+        "lower": [0, 13, 71],
+        "upper": [180, 255, 255]
+    }  ],
+  "_comment": "bounds for black background"
+}
