@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'numpy', 'opencv-python'],
     zip_safe=True,
     maintainer='yliu08',
     maintainer_email='yuzhiliu8@gmail.com',
@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'publisher = video_publisher.video_publisher:main'
         ],
     },
 )

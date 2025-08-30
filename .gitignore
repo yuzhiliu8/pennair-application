@@ -1,5 +1,5 @@
 /venv
-/resources/PennAir*
+/resource/PennAir*
 /__pycache__
 /build
 /install
