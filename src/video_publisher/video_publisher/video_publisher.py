@@ -13,7 +13,8 @@ class VideoPublisher(Node):
     def __init__(self):
         super().__init__('video_publisher')
 
-        pkg_dir = get_package_share_directory("video_publisher")
+        #Getting params
+        pkg_dir = get_package_share_directory("system_configuration")
         params_path = os.path.join(os.path.join(pkg_dir, 'config', 'video_publisher_params.yaml'))
 
         with open(params_path, 'r') as params_file:
@@ -21,7 +22,7 @@ class VideoPublisher(Node):
             self.params = params
 
         self.publisher_ = self.create_publisher(Image, "video", 10)
-        self.timer_period = 1.0/20.0 #30 fps
+        self.timer_period = 1.0/30.0 #20 fps
         self.timer = self.create_timer(self.timer_period, self.publish_frame)
         self.bridge = CvBridge()
 

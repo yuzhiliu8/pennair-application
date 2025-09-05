@@ -15,22 +15,25 @@ class ShapeEdgeDetector(Node):
     def __init__(self):
         super().__init__('shape_edge_detector')
 
-
-        pkg_dir = get_package_share_directory("shape_edge_detector")
+        # Loading Parameter File
+        pkg_dir = get_package_share_directory("system_configuration")
         params_file = os.path.join(pkg_dir, "config", "shape_edge_detector_params.yaml")
-
         with open(params_file, 'r') as params:
             self.params = yaml.safe_load(params)
 
         self.bridge = CvBridge()
         self.subscriber_ = self.create_subscription(Image, "/video", self.video_callback, 10)
 
-        # self.log(params_file)
-        # self.log(self.params)
+        self.K = [[2564.3186869,    0,             0],         #fx, s, x0     INTRINSIC CAMERA PARAMETERS
+                  [0,               2569.70273111, 0],         #0   fy, y0
+                  [0,               0,             1]]         #0,  0,  1
+        
+        self.pixels_per_inch = 10.46 #calculated from 10 in radius
+        self.Z = None
+
 
         cv.namedWindow("Edge Detection Video", cv.WINDOW_NORMAL)
-        cv.resizeWindow("Edge Detection Video", 800, 600)
-
+        cv.resizeWindow("Edge Detection Video", 1280, 720)
 
 
     def log(self, msg):
@@ -38,61 +41,99 @@ class ShapeEdgeDetector(Node):
     
     def video_callback(self, msg: Image):
         cv_img = self.bridge.imgmsg_to_cv2(msg)
-        edge_detected = self.detect_shapes_2d(cv_img)
+
+        if self.Z is None:
+            self.Z = self.calculate_depth()
+        edge_detected = self.detect_shapes(cv_img)
         cv.imshow("Edge Detection Video", edge_detected)
         cv.waitKey(1)
 
 
-    def detect_shapes_2d(self, image: np.ndarray):
+    def detect_shapes(self, image: np.ndarray):
+        """Use custom cv algorithm to extract shape edges from background of input image
 
-        preset = self.params['shape_edge_detector']['preset']
-        hsv_bounds = self.params['shape_edge_detector']['bound_presets'][preset]
-        # self.log(hsv_bounds)
+        Args:
+            image (np.ndarray): input image/frame
 
-        hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
+        Returns:
+            np.ndarray : original image but with drawn on contours and real world 3D coordinates
+        """        
 
-        mask = np.zeros((hsv.shape[0], hsv.shape[1]), np.uint8)
-        print(mask.shape)
-        for bound in hsv_bounds:
-            lower_bound = tuple(hsv_bounds[bound]['lower'])
-            upper_bound = tuple(hsv_bounds[bound]['upper'])
-            mask = cv.bitwise_or(mask, cv.inRange(hsv, lower_bound, upper_bound))
-        # lower = (0, 0, 0) #lower green parameterize these
-        # upper = (180, 255, 238) #upper green #parameterize these
-        # mask = cv.inRange(hsv, lower, upper)
+        # Get necessary params
+        params = self.params['shape_edge_detector']
+        CLOSE_KERNEL_PIXEL_DIM = params['close_kernel_pixel_dim']
+        MORPH_CLOSE_ITERATIONS = params['morph_close_iterations']
+        CONTOUR_PIXEL_THRESHOLD = params['contour_pixel_threshold']
 
-        kernel = np.ones((5, 5), np.uint8)
-        eroded = cv.erode(mask, kernel, iterations=1)
-        opened = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
-        closed = cv.morphologyEx(opened, cv.MORPH_CLOSE, kernel)
-        contours, hierarchy = cv.findContours(closed, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        #main algorithm
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        canny = cv.Canny(gray, 23, 80)
+        close_kernel = cv.getStructuringElement(cv.MORPH_RECT, (CLOSE_KERNEL_PIXEL_DIM, CLOSE_KERNEL_PIXEL_DIM))
+        reverse_closed = ~cv.morphologyEx(canny, cv.MORPH_CLOSE, close_kernel, iterations=MORPH_CLOSE_ITERATIONS)
 
-        # cv.imshow("mask", closed)
-
-        cv.drawContours(image, contours, -1, (0, 0, 255), 2)
-        # cv.imshow("mask", eroded)
-        print(len(contours))
+        contours, hierarchy = cv.findContours(reverse_closed, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        # dims = []
         for i in contours:
-            # print(i.shape)
+            if i.shape[0] < CONTOUR_PIXEL_THRESHOLD:
+                continue
+            # dims.append(i.shape[0])
+            cv.drawContours(image, [i], -1, (0, 255, 100), 2)
             M = cv.moments(i)
-            # print(M)
             if M['m00'] == 0:
                 continue
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            cv.circle(image, (cx, cy), radius=5, color=(0, 0, 255), thickness=-1)
+            
+            #Draw center circle and coordinates text
+            center_x = int(M['m10'] / M['m00'])
+            center_y = int(M['m01'] / M['m00'])
+            cv.circle(image, (center_x, center_y), radius=5, color=(0, 255, 100), thickness=-1)
+            coords_inches = self.get_3D_coords(center_x, center_y)
             cv.putText(
                 image,
-                text=f"[{cx}, {cy}]",
-                org=(cx - 20, cy + 20),
+                text=f"[Depth: {coords_inches[2]} X:{coords_inches[0]}, Y:{coords_inches[1]}]",
+                org=(center_x - 20, center_y + 20),
                 fontFace = cv.FONT_HERSHEY_SIMPLEX,
                 fontScale=0.5,
-                color = (0, 0, 255),
+                color = (0, 255, 100),
                 thickness = 2
             )
-        
+        # self.log(sorted(dims)) debugging
         return image
 
+
+        """         """
+    def calculate_depth(self):
+        """Calculates depth of image (inches) based on focal length and pixel to inch ratio
+
+        Returns:
+            float: Average of the depths calculated from fx and fy
+        """
+        f_x = self.K[0][0]
+        f_y = self.K[1][1]
+        # real_width = self.width / self.pixels_per_inch #inches
+        Z_x = f_x / self.pixels_per_inch
+        Z_y = f_y / self.pixels_per_inch
+
+        return (Z_x + Z_y) / 2 #average
+
+    def get_3D_coords(self, x, y): #assuming cx, cy = 0
+        """Generates 3D real world coordinates using calculated depth and pinhole camera equations
+
+        Args:
+            x (int): images' x coordinate in pixels
+            y (int): image's y coordinate in pixels 
+
+        Returns:
+            tuple(double, double, double): Real world X, Y, Z coordinates in inches. Truncated to 2 decimals
+        """
+        f_x = self.K[0][0] #focal length x
+        f_y = self.K[1][1] #focal length y
+        X = self.Z * (x/f_x)
+        Y = self.Z * (y/f_y)
+
+        return (truncate_decimals(X), truncate_decimals(Y), truncate_decimals(self.Z))
+
+def truncate_decimals(num):
+    return int(num * 100) / 100.0
 
 def main(args = None):
     rclpy.init(args=args)
@@ -100,9 +141,34 @@ def main(args = None):
     shape_edge_detector = ShapeEdgeDetector()
     shape_edge_detector.log("STARTED")
     rclpy.spin(shape_edge_detector)
-
     rclpy.shutdown()
 
 
 if __name__ == "__main__":
     main()
+
+
+    # *********HSV FILTERING --> too hardcoded ************
+    # hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
+
+    # mask = np.zeros((hsv.shape[0], hsv.shape[1]), np.uint8)
+    # print(mask.shape)
+    # for bound in hsv_bounds:
+    #     lower_bound = tuple(hsv_bounds[bound]['lower'])
+    #     upper_bound = tuple(hsv_bounds[bound]['upper'])
+    #     mask = cv.bitwise_or(mask, cv.inRange(hsv, lower_bound, upper_bound))
+    # lower = (0, 0, 0) #lower green parameterize these
+    # upper = (180, 255, 238) #upper green #parameterize these
+    # mask = cv.inRange(hsv, lower, upper)
+
+    # **** Used to calculate pixel radius of circle, in order to get the inch to pixel conversion rate (using 'test' bound preset)
+    #AVG_RADIUS ~ 104.6 
+    #rate ~ 10.46 pixels/inch
+    # radius_total = 0 
+    # i = 0
+    # center, rad = cv.minEnclosingCircle(contours[0])
+    # radius_total += rad
+    # i += 1
+    # self.log(f"AVERAGE RADIUS: {radius_total / i}")
+        
+    # cv.imshow("mask", closed)

@@ -1,0 +1,11 @@
+shape_edge_detector:
+  close_kernel_pixel_dim: 11
+  morph_close_iterations: 4
+  contour_pixel_threshold: 7
+
+  # close_kernel_pixel_dim: 7
+  # morph_close_iterations: 1
+  # contour_pixel_threshold: 50
+
+  
+

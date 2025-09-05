@@ -3,12 +3,53 @@ import numpy as np
 
 
 class ShapeDetector:
-    def __init__(self, hsv_bounds):
-        self.hsv_bounds = hsv_bounds
+    def __init__(self):
+        pass
 
+
+    def detect(self, image):
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        canny = cv.Canny(gray, 30, 80)
+        cv.imshow("canny", canny)
+        close_kernel = cv.getStructuringElement(cv.MORPH_RECT, (9, 9))
+
+
+        # opened = cv.morphologyEx(reverse_canny, cv.MORPH_OPEN, open_kernel, iterations=5)
+        closed = cv.morphologyEx(canny, cv.MORPH_CLOSE, close_kernel, iterations=3)
+        # opened = cv.morphologyEx(~closed, cv.MORPH_OPEN, (20, 20), iterations=2)
+        cv.imshow("closed", ~closed)
+        # cv.imshow('opened', opened)
+        contours, hierarchy = cv.findContours(~closed, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        # c = list(contours)
+        # c = sorted(c, key=lambda x: x.shape[0], reverse=True)
+        # for i in range(5):
+        #     print(c[i].shape[0], end=" ")
+        # print()
+
+        cv.drawContours(image, contours, -1, (0, 0, 255), 2)
+        for i in contours:
+            # print(i.shape)
+            M = cv.moments(i)
+            # print(M)
+            if M['m00'] == 0:
+                continue
+            cx = int(M['m10'] / M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            cv.circle(image, (cx, cy), radius=5, color=(0, 0, 255), thickness=-1)
+            cv.putText(
+                image,
+                text=f"[{cx}, {cy}]",
+                org=(cx - 20, cy + 20),
+                fontFace = cv.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.5,
+                color = (0, 0, 255),
+                thickness = 2
+            )
+        
+        return image
+
+    ############### NOT USED, GOT RID OF HSV BOUNDS ################
     def detect_shapes_2d(self, image: np.ndarray):
-
-
         hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
 
         mask = np.zeros((hsv.shape[0], hsv.shape[1]), np.uint8)

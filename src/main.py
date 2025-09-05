@@ -3,24 +3,30 @@ from shape_detector import ShapeDetector
 import json
 import argparse
 
-STATIC_PATH = "./resources/PennAir 2024 App Static.png"
-# STATIC_PATH = "./resources/PennAir_Dynamic_SS.png"
+# STATIC_IMG = "./resource/PennAir 2024 App Static.png"
+STATIC_IMG = "./resource/dynamic_hard.png"
+video = "./resource/PennAir 2024 App Dynamic Hard.mp4"
+# video = "./resource/PennAir 2024 App Dynamic.mp4"
+# STATIC_IMG = "../resource/solid_bckground.png"
 
-def main(args):
+def main():
 
-    print(args.conf_path)
-    with open(args.conf_path, 'r') as config:
-        hsv_bounds = json.load(config)
-        print(hsv_bounds)
 
-    shape_detector = ShapeDetector(hsv_bounds)
-    img = cv.imread(STATIC_PATH)
+    shape_detector = ShapeDetector()
+    # static = cv.imread(STATIC_IMG)
+    cap = cv.VideoCapture(video)
+    cv.namedWindow("detected", cv.WINDOW_NORMAL)
+    cv.resizeWindow("detected", 1280, 720)
 
-    detected_img = shape_detector.detect_shapes_2d(img)
+    cv.namedWindow("closed", cv.WINDOW_NORMAL)
+    cv.resizeWindow("closed", 1280, 720)
 
     try:
         while True:
-            cv.imshow("Edge Detection", detected_img)
+            # ret, img = cap.read()
+            img = cv.imread(STATIC_IMG)
+            detected = shape_detector.detect(img)
+            cv.imshow("detected", detected)
             cv.waitKey(100)
     except KeyboardInterrupt:
         print('exited')
@@ -34,12 +40,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument(
-        "--conf_path",
-        required=True,
-        default="./config/conf_green.json",
-        help="path for config file (JSON)"
-        )
-    args = argparser.parse_args()
-    main(args)
+    main()
