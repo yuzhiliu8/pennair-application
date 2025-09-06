@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 
+# NOT A PART OF THE ROS APPLICATION, USED FOR SEPARATE TESTING #
 
 class ShapeDetector:
     def __init__(self):

@@ -67,7 +67,7 @@ class ShapeEdgeDetector(Node):
 
         #main algorithm
         gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        canny = cv.Canny(gray, 23, 80)
+        canny = cv.Canny(gray, params['canny_lower'], params['canny_upper'])
         close_kernel = cv.getStructuringElement(cv.MORPH_RECT, (CLOSE_KERNEL_PIXEL_DIM, CLOSE_KERNEL_PIXEL_DIM))
         reverse_closed = ~cv.morphologyEx(canny, cv.MORPH_CLOSE, close_kernel, iterations=MORPH_CLOSE_ITERATIONS)
 

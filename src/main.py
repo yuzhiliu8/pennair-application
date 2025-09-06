@@ -1,7 +1,7 @@
 import cv2 as cv
 from shape_detector import ShapeDetector
-import json
-import argparse
+
+# NOT A PART OF THE ROS APPLICATION, USED FOR SEPARATE TESTING #
 
 # STATIC_IMG = "./resource/PennAir 2024 App Static.png"
 STATIC_IMG = "./resource/dynamic_hard.png"

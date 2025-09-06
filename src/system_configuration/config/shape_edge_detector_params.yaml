@@ -3,6 +3,9 @@ shape_edge_detector:
   morph_close_iterations: 4
   contour_pixel_threshold: 7
 
+  canny_lower: 23
+  canny_upper: 80
+
   # close_kernel_pixel_dim: 7
   # morph_close_iterations: 1
   # contour_pixel_threshold: 50
