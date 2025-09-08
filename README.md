@@ -3,7 +3,7 @@
 ## Installation / Setup
 
 1. Have ROS 2 installed. The distro I used for development was Jazzy Jalisco on Ubuntu 24 (WSL). Install here: https://docs.ros.org/en/jazzy/Installation.html
-2. Clone the repository
+Clone the repository
 ```bash
     git clone https://github.com/yuzhiliu8/pennair-application.git
     cd pennair-application
